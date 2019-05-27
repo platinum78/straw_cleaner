@@ -7,19 +7,32 @@
 // Standard libraries are copyrighted to respective authors.                  //
 ////////////////////////////////////////////////////////////////////////////////
 
+#ifndef STRAW_CLEANER_H_
+#define STRAW_CLEANER_H_
+
 #include "./parameters.h"
 #include <AFMotor.h>
 
 #define AUTOMATIC   true
 #define MANUAL      false
 
+#define CAROUSEL_LOCKED     1
+#define CAROUSEL_UNLOCKED   0
+
+#define BRUSH_ADVANCED      1
+#define BRUSH_RETREATED     0
+
 class StrawCleaner
 {
 public: // Initializers
     StrawCleaner(AF_Stepper &, AF_Stepper &, int, int, float, bool);
+    void TestMove();
+
+public: // Indicator methods
+    bool IsAutoMode();
 
 public: // Brush motion methods
-    void BrushMove(float);
+    void BrushMove(int);
     void BrushAdvance();
     void BrushRetreat();
 
@@ -67,17 +80,26 @@ StrawCleaner::StrawCleaner(AF_Stepper &brush_stepper, AF_Stepper &carousel_stepp
       carousel_stepper_(carousel_stepper),
       brush_stepper_operating_(false),
       carousel_stepper_operating_(false),
-      report_serial_(report_serial)
+      report_serial_(report_serial),
+      operating_mode_(AUTOMATIC),
+      brush_stepper_pos_(0),
+      carousel_stepper_pos_(0),
+      brush_operating_steps_(12000)
 {
     // None
 }
 
+void StrawCleaner::TestMove()
+{
+    brush_stepper_.step(1000, FORWARD, INTERLEAVE);
+}
+
 
 // Move the brush. pos is given in percent units.
-void StrawCleaner::BrushMove(float pos_percent)
+void StrawCleaner::BrushMove(int pos_percent)
 {
     // Convert desired position into steps units.
-    int targetPos = brush_operating_steps_ * pos_percent;
+    int targetPos = brush_operating_steps_ * pos_percent / 100;
     int stepDiff = targetPos - brush_stepper_pos_;
 
     // Move the motor from current position to target postion.
@@ -85,13 +107,20 @@ void StrawCleaner::BrushMove(float pos_percent)
     {
         Serial.print("Move to position ");
         Serial.print(pos_percent);
-        Serial.print("%%... ");
+        Serial.print("%... ");
     }
-    brush_stepper_.step(stepDiff, FORWARD, INTERLEAVE);
+
+    if (stepDiff > 0)
+//        Serial.println(stepDiff);
+        brush_stepper_.step(stepDiff, FORWARD, INTERLEAVE);
+    else
+//        Serial.println(stepDiff);
+        brush_stepper_.step(-stepDiff, BACKWARD, INTERLEAVE);
+    brush_stepper_pos_ += stepDiff;
 
     if (report_serial_)
     {
-        Serial.print("finished!");
+        Serial.println("finished!");
     }
 }
 
@@ -99,14 +128,14 @@ void StrawCleaner::BrushMove(float pos_percent)
 // Advance the brush (call BrushMove method with parameter 100.0)
 void StrawCleaner::BrushAdvance()
 {
-    BrushMove(100.0);
+    BrushMove(100);
 }
 
 
 // Retreat the brush.
 void StrawCleaner::BrushRetreat()
 {
-    BrushMove(0.0);
+    BrushMove(0);
 }
 
 
@@ -133,14 +162,41 @@ void StrawCleaner::CarouselMove(int steps)
 // Spin the carousel to next phase.
 void StrawCleaner::CarouselProceed()
 {
+    if (report_serial_)
+        Serial.print("Proceed carousel... ");
     
+    if (carousel_phase_ == CAROUSEL_LOCKED)
+    {
+        CarouselMove(CAROUSEL_LOCKING);
+        carousel_phase_ = CAROUSEL_UNLOCKED;
+    }
+    else if (carousel_phase_ == CAROUSEL_UNLOCKED)
+    {
+        CarouselMove(CAROUSEL_UNLOCKING);
+        carousel_phase_ = CAROUSEL_LOCKED;
+    }
+
+    if (report_serial_)
+        Serial.println("Finished!");
 }
 
 
 // Spin the carousel to previous phase.
 void StrawCleaner::CarouselRetract()
 {
+    if (report_serial_)
+        Serial.println("Retract carousel...");
     
+    if (carousel_phase_ == CAROUSEL_LOCKED)
+    {
+        CarouselMove(-CAROUSEL_LOCKING);
+        carousel_phase_ = CAROUSEL_UNLOCKED;
+    }
+    else if (carousel_phase_ == CAROUSEL_UNLOCKED)
+    {
+        CarouselMove(-CAROUSEL_UNLOCKING);
+        carousel_phase_ = CAROUSEL_LOCKED;
+    }
 }
 
 
@@ -149,3 +205,12 @@ void StrawCleaner::FlipOperatingMode()
 {
     operating_mode_ = !operating_mode_;
 }
+
+
+// Get info about operating mode.
+bool StrawCleaner::IsAutoMode()
+{
+    return operating_mode_;
+}
+
+#endif

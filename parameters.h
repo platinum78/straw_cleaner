@@ -20,7 +20,11 @@
 #define BRUSH_OPERATING_LENGTH          250
 
 // Maximum speed of each stepper
-#define BRUSH_MAX_RPM       400
-#define CAROUSEL_MAX_RPM    100
+#define BRUSH_MAX_RPM       300
+#define CAROUSEL_MAX_RPM    30
+
+// Carousel stepper positions
+#define CAROUSEL_LOCKING    160
+#define CAROUSEL_UNLOCKING  240
 
 #endif

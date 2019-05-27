@@ -12,21 +12,13 @@
 #include "./straw_cleaner.h"
 
 // Initialize stepper motors.
-AF_Stepper BrushStepper(1, SPR_BRUSH);
-AF_Stepper CarouselStepper(2, SPR_CAROUSEL);
+AF_Stepper BrushStepper(SPR_BRUSH, 1);
+AF_Stepper CarouselStepper(SPR_CAROUSEL, 2);
 
 
 // Initialize StrawCleaner instance.
 StrawCleaner strawCleaner(BrushStepper, CarouselStepper,
-                          PPR_BRUSH, PPR_CAROUSEL, BRUSH_OPERATING_LENGTH);
-
-
-// State variables.
-#define AUTOMATIC   true
-#define MANUAL      false
-
-bool operatingMode = AUTOMATIC;
-
+                          PPR_BRUSH, PPR_CAROUSEL, BRUSH_OPERATING_LENGTH, true);
 
 
 // Serial communications parameters.
@@ -65,8 +57,14 @@ void setup()
     // Attach interrupts.
     attachInterrupt(digitalPinToInterrupt(BUTTON_INTERRUPT_PIN), checkAllButtons, RISING);
 
+    BrushStepper.setSpeed(400);
+    CarouselStepper.setSpeed(30);
+
     // Serial should be replaced with Bluetooth code.
     Serial.begin(9600);
+    Serial.println("System ready!");
+
+    strawCleaner.TestMove();
 }
 
 
@@ -95,7 +93,11 @@ void loop()
         }
     }
 
-    
+    if (strawCleaner.IsAutoMode())
+    {
+        Serial.println("Entering automatic operation mode!");
+        autoOperate();
+    }
 }
 
 
@@ -126,5 +128,13 @@ void flipOperatingMode(StrawCleaner &device)
 // Automatically operate the straw cleaner.
 void autoOperate()
 {
-    
+    while (strawCleaner.IsAutoMode())
+    {
+        strawCleaner.BrushAdvance();
+        strawCleaner.BrushRetreat();
+        strawCleaner.BrushAdvance();
+        strawCleaner.CarouselProceed();
+        strawCleaner.BrushRetreat();
+        strawCleaner.CarouselProceed();
+    }
 }
